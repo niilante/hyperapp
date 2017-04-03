@@ -4,21 +4,22 @@ import { expectHTMLToBe } from "./util"
 beforeEach(() => document.body.innerHTML = "")
 
 const TreeTest = trees => app({
-  model: 0,
-  view: model => trees[model].tree,
+  state: 0,
+  view: state => trees[state].tree,
   actions: {
-    next: model => (model + 1) % trees.length
+    next: state => (state + 1) % trees.length
   },
-  subscriptions: [
-    (_, actions) => {
-      trees.forEach(tree => {
-        expectHTMLToBe(tree.html)
-        actions.next()
-      })
-    }
-  ]
+  events: {
+    onLoad: [
+      (_, actions) => {
+        trees.forEach(tree => {
+          expectHTMLToBe(tree.html)
+          actions.next()
+        })
+      }
+    ]
+  }
 })
-
 
 test("replace element", () => {
   TreeTest([
@@ -219,7 +220,6 @@ test("reorder keyed", () => {
   ])
 })
 
-
 test("grow/shrink keyed", () => {
   TreeTest([
     {
@@ -301,7 +301,6 @@ test("grow/shrink keyed", () => {
   ])
 })
 
-
 test("mixed keyed/non-keyed", () => {
   TreeTest([
     {
@@ -378,41 +377,6 @@ test("mixed keyed/non-keyed", () => {
 })
 
 
-
-// test("", () => {
-//   app({
-//     model: true,
-//     actions: {
-//       toggle: model => !model
-//     },
-//     subscriptions: [
-//       (_, actions) => {
-//         expectHTMLToBe(`
-//           <main></main>
-//         `)
-
-//         actions.toggle()
-
-//         expectHTMLToBe(`
-//           <main>
-//             <p id="foo">A</p>
-//             <p>B</p>
-//             <p>C</p>
-//           </main>
-//         `)
-//       }
-//     ],
-//     view: model => model
-//       ?
-//       h("main", {}, [])
-//       :
-//       h("main", {}, [
-//         h("p", { key: "a", onCreate: e => e.id = "foo" }, "A"),
-//         h("p", { key: "b" }, "B"),
-//         h("p", { key: "c" }, "C")
-//       ]),
-//   })
-// })
 
 
 

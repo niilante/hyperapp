@@ -11,7 +11,9 @@ test("DOMContentLoaded", done => {
   window.document.readyState = "loading"
 
   app({
-    subscriptions: [done]
+    events: {
+      onLoad: [done]
+    }
   })
 
   window.document.readyState = "complete"
@@ -21,10 +23,10 @@ test("DOMContentLoaded", done => {
   window.document.dispatchEvent(event)
 })
 
-test("render a model", () => {
+test("render a state", () => {
   app({
-    model: "foo",
-    view: model => h("div", {}, model)
+    state: "foo",
+    view: state => h("div", {}, state)
   })
 
   expectHTMLToBe(`
@@ -34,10 +36,10 @@ test("render a model", () => {
   `)
 })
 
-test("render a model with a loop", () => {
+test("render a state with a loop", () => {
   app({
-    model: ["foo", "bar", "baz"],
-    view: model => h("ul", {}, model.map(i => h("li", {}, i)))
+    state: ["foo", "bar", "baz"],
+    view: state => h("ul", {}, state.map(i => h("li", {}, i)))
   })
 
   expectHTMLToBe(`
@@ -102,56 +104,42 @@ test("render svg elements recursively", () => {
   }
 })
 
-test("null or undefined data is safe", () => {
-  app({
-    view: model => h("div", null, [
-      h("div", undefined, "foo")
-    ])
-  })
-
-  expectHTMLToBe(`
-    <div>
-      <div>
-        foo
-      </div>
-    </div>
-  `)
-})
-
 test("toggle class attributes", () => {
   app({
-    model: true,
-    view: model => h("div", model ? { class: "foo" } : {}, "bar"),
+    state: true,
+    view: state => h("div", state ? { class: "foo" } : {}, "bar"),
     actions: {
-      toggle: model => !model
+      toggle: state => !state
     },
-    subscriptions: [
-      (_, actions) => {
-        expectHTMLToBe(`
-          <div class="foo">
-            bar
-          </div>
-        `)
+    events: {
+      onLoad: [
+        (_, actions) => {
+          expectHTMLToBe(`
+            <div class="foo">
+              bar
+            </div>
+          `)
 
-        actions.toggle()
+          actions.toggle()
 
-        expectHTMLToBe(`
-          <div>
-            bar
-          </div>
-        `)
-      }
-    ]
+          expectHTMLToBe(`
+            <div>
+              bar
+            </div>
+          `)
+        }
+      ]
+    }
   })
 })
 
 test("update/remove element data", () => {
   app({
-    model: false,
+    state: false,
     actions: {
-      toggle: model => !model
+      toggle: state => !state
     },
-    view: model => h("div", model
+    view: state => h("div", state
       ?
       {
         id: "xuuq",
@@ -173,272 +161,51 @@ test("update/remove element data", () => {
         baz: false
       }, "bar"
     ),
-    subscriptions: [
-      (_, actions) => {
-        expectHTMLToBe(`
-          <div id="quux" class="foo" style="color: red; height: 100px;" foo="true">
-            bar
-          </div>
-        `)
+    events: {
+      onLoad: [
+        (_, actions) => {
+          expectHTMLToBe(`
+            <div id="quux" class="foo" style="color: red; height: 100px;" foo="true">
+              bar
+            </div>
+          `)
 
-        actions.toggle()
+          actions.toggle()
 
-        expectHTMLToBe(`
-          <div id="xuuq" style="height: 200px; width: 100px;" foo="true">
-            bar
-          </div>
-        `)
-      }
-    ]
+          expectHTMLToBe(`
+            <div id="xuuq" style="height: 200px; width: 100px;" foo="true">
+              bar
+            </div>
+          `)
+        }
+      ]
+    }
   })
 })
 
 test("sync selectionStart/selectionEnd in text inputs after update", () => {
   app({
-    model: "foo",
+    state: "foo",
     actions: {
-      setText: model => "bar"
+      setText: state => "bar"
     },
-    view: model => h("input", { id: "foo", value: model }),
-    subscriptions: [
-      (_, actions) => {
-        const input = document.getElementById("foo")
+    view: state => h("input", { id: "foo", value: state }),
+    events: {
+      onLoad: [
+        (_, actions) => {
+          const input = document.getElementById("foo")
 
-        expect(input.selectionStart).toBe(0)
-        expect(input.selectionEnd).toBe(0)
+          expect(input.selectionStart).toBe(0)
+          expect(input.selectionEnd).toBe(0)
 
-        input.setSelectionRange(2, 2)
+          input.setSelectionRange(2, 2)
 
-        actions.setText()
+          actions.setText()
 
-        expect(input.selectionStart).toBe(2)
-        expect(input.selectionEnd).toBe(2)
-      }
-    ]
-  })
-})
-
-// lifecycle
-test("onCreate", done => {
-  app({
-    model: 1,
-    view: model => h("div", {
-      onCreate: e => {
-        expect(model).toBe(1)
-        done()
-      }
-    })
-  })
-})
-
-test("onUpdate", done => {
-  app({
-    model: 1,
-    view: model => h("div", {
-      onUpdate: e => {
-        expect(model).toBe(2)
-        done()
-      }
-    }),
-    actions: {
-      add: model => model + 1
-    },
-    subscriptions: [
-      (_, actions) => actions.add()
-    ]
-  })
-})
-
-test("onRemove", done => {
-  const treeA = h("ul", {},
-    h("li", {}, "foo"),
-    h("li", {
-      onRemove: _ => {
-        done()
-      }
-    }, "bar"))
-
-  const treeB = h("ul", {}, h("li", {}, "foo"))
-
-  app({
-    model: true,
-    view: _ => _ ? treeA : treeB,
-    actions: {
-      toggle: model => !model
-    },
-    subscriptions: [
-      (_, actions) => actions.toggle()
-    ]
-  })
-})
-
-
-//subs
-test("subscriptions run sequentially on load", () => {
-  app({
-    model: 1,
-    actions: {
-      step: model => model + 1
-    },
-    subscriptions: [
-      (_, actions) => actions.step(),
-      (_, actions) => actions.step(),
-      model => expect(model).toBe(3)
-    ]
-  })
-})
-
-//hooks
-test("onAction/onUpdate/onRender", done => {
-  app({
-    model: "foo",
-    view: model => h("div", {}, model),
-    actions: {
-      set: (_, data) => data
-    },
-    subscriptions: [
-      (_, actions) => actions.set("bar")
-    ],
-    hooks: {
-      onAction: (action, data) => {
-        expect(action).toBe("set")
-        expect(data).toBe("bar")
-      },
-      onUpdate: (oldModel, newModel, data) => {
-        expect(oldModel).toBe("foo")
-        expect(newModel).toBe("bar")
-        expect(data).toBe("bar")
-      },
-      onRender: (model, view) => {
-        if (model === "foo") {
-          expect(view("bogus")).toEqual({
-            tag: "div",
-            data: {},
-            children: ["bogus"]
-          })
-
-          return view
-
-        } else {
-          expect(model).toBe("bar")
-          done()
-
-          return view
+          expect(input.selectionStart).toBe(2)
+          expect(input.selectionEnd).toBe(2)
         }
-      }
+      ]
     }
   })
 })
-
-test("onAction and nested actions", done => {
-  app({
-    model: "foo",
-    actions: {
-      foo: {
-        bar: {
-          baz: {
-            set: (_, data) => data
-          }
-        }
-      }
-    },
-    hooks: {
-      onAction: (name, data) => {
-        expect(name).toBe("foo.bar.baz.set")
-        expect(data).toBe("baz")
-        done()
-      }
-    },
-    subscriptions: [
-      (_, actions) => actions.foo.bar.baz.set("baz")
-    ]
-  })
-})
-
-test("onError", done => {
-  app({
-    hooks: {
-      onError: err => {
-        expect(err).toBe("foo")
-        done()
-      }
-    },
-    subscriptions: [
-      (model, actions, error) => {
-        error("foo")
-      }
-    ]
-  })
-})
-
-test("throw without onError", () => {
-  app({
-    subscriptions: [
-      (model, actions, error) => {
-        try {
-          error("foo")
-        } catch (err) {
-          expect(err).toBe("foo")
-        }
-      }
-    ]
-  })
-})
-
-test("allow multiple listeners on the same hook", () => {
-  let count = 0
-
-  const PluginA = _ => ({
-    hooks: {
-      onAction: (action, data) => {
-        expect(action).toBe("foo")
-        expect(data).toBe("bar")
-        expect(++count).toBe(2)
-      },
-      onUpdate: (oldModel, newModel) => {
-        expect(oldModel).toBe("foo")
-        expect(newModel).toBe("foobar")
-        expect(++count).toBe(5)
-      }
-    }
-  })
-
-  const PluginB = _ => ({
-    hooks: {
-      onAction: (action, data) => {
-        expect(action).toBe("foo")
-        expect(data).toBe("bar")
-        expect(++count).toBe(3)
-      },
-      onUpdate: (oldModel, newModel) => {
-        expect(oldModel).toBe("foo")
-        expect(newModel).toBe("foobar")
-        expect(++count).toBe(6)
-      }
-    }
-  })
-
-  app({
-    model: "foo",
-    plugins: [PluginA, PluginB],
-    actions: {
-      foo: (model, data) => model + data
-    },
-    hooks: {
-      onAction: (action, data) => {
-        expect(action).toBe("foo")
-        expect(data).toBe("bar")
-        expect(++count).toBe(1)
-      },
-      onUpdate: (oldModel, newModel) => {
-        expect(oldModel).toBe("foo")
-        expect(newModel).toBe("foobar")
-        expect(++count).toBe(4)
-      }
-    },
-    subscriptions: [
-      (_, actions) => actions.foo("bar")
-    ]
-  })
-})
-

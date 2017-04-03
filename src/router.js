@@ -1,30 +1,32 @@
 export default function (app) {
   return {
-    model: match(app.model, location.pathname),
     actions: {
       router: {
-        match: match,
-        go: function (_, data, actions) {
+        match: function (state, data) {
+          return match(data)
+        },
+        go: function (state, data, actions) {
           history.pushState({}, "", data)
           actions.router.match(data)
         }
       }
     },
-    hooks: {
-      onRender: function (model) {
-        return app.view[model.router.match]
-      }
-    },
-    subscriptions: [
-      function (_, actions) {
-        addEventListener("popstate", function () {
+    events: {
+      onLoad: function (state, actions) {
+        route()
+        addEventListener("popstate", route)
+
+        function route() {
           actions.router.match(location.pathname)
-        })
+        }
+      },
+      onRender: function (state, actions, routes, emit) {
+        return routes[emit("onRoute", state.router.match)]
       }
-    ]
+    }
   }
 
-  function match(model, data) {
+  function match(data) {
     var match
     var params = {}
 
@@ -61,5 +63,8 @@ export default function (app) {
     }
   }
 }
+
+
+
 
 

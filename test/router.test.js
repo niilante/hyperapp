@@ -10,61 +10,63 @@ beforeEach(() => {
   document.body.innerHTML = ""
 })
 
-test("select default route", () => {
-  window.history.pushState = _ => _
-
+test("/", () => {
   app({
     view: {
-      "*": model => h("div", {}, "foo"),
-    },
-    plugins: [Router],
-    subscriptions: [
-      (_, actions) => {
-        expectHTMLToBe(`
-						<div>
-							foo
-						</div>
-					`)
-
-        actions.router.go("/bar")
-        expectHTMLToBe(`
-						<div>
-							foo
-						</div>
-					`)
-
-        actions.router.go("/baz")
-        expectHTMLToBe(`
-						<div>
-							foo
-						</div>
-					`)
-      }
-    ]
-  })
-})
-
-test("select index route", () => {
-  app({
-    view: {
-      "/": model => h("div", {}, "foo")
+      "/": state => h("div", {}, "foo")
     },
     plugins: [Router]
   })
 
   expectHTMLToBe(`
-			<div>
-				foo
-			</div>
-		`)
+    <div>
+      foo
+    </div>
+  `)
 })
 
-test("select /foo/bar/baz", () => {
+test("*", () => {
+  window.history.pushState = _ => _
+
+  app({
+    view: {
+      "*": state => h("div", {}, "foo"),
+    },
+    plugins: [Router],
+    events: {
+      onLoad: [
+        (_, actions) => {
+          expectHTMLToBe(`
+						<div>
+							foo
+						</div>
+					`)
+
+          actions.router.go("/bar")
+          expectHTMLToBe(`
+            <div>
+              foo
+            </div>
+          `)
+
+          actions.router.go("/baz")
+          expectHTMLToBe(`
+						<div>
+							foo
+						</div>
+					`)
+        }
+      ]
+    }
+  })
+})
+
+test("routes", () => {
   window.location.pathname = "/foo/bar/baz"
 
   app({
     view: {
-      "/foo/bar/baz": model => h("div", {}, "foo", "bar", "baz")
+      "/foo/bar/baz": state => h("div", {}, "foo", "bar", "baz")
     },
     plugins: [Router]
   })
@@ -76,14 +78,14 @@ test("select /foo/bar/baz", () => {
 		`)
 })
 
-test("collect route params", () => {
+test("route params", () => {
   window.location.pathname = "/beep/bop/boop"
 
   app({
     view: {
-      "/:foo/:bar/:baz": model =>
-        h("ul", {}, Object.keys(model.router.params).map(key =>
-          h("li", {}, `${key}:${model.router.params[key]}`)))
+      "/:foo/:bar/:baz": state =>
+        h("ul", {}, Object.keys(state.router.params).map(key =>
+          h("li", {}, `${key}:${state.router.params[key]}`)))
     },
     plugins: [Router]
   })
@@ -97,105 +99,126 @@ test("collect route params", () => {
 		`)
 })
 
-test("collect route params separated by a dash", () => {
+test("route params separated by a dash", () => {
   window.location.pathname = "/beep-bop-boop"
 
   app({
     view: {
-      "/:foo-:bar-:baz": model =>
-        h("ul", {}, Object.keys(model.router.params).map(key =>
-          h("li", {}, `${key}:${model.router.params[key]}`)))
+      "/:foo-:bar-:baz": state =>
+        h("ul", {}, Object.keys(state.router.params).map(key =>
+          h("li", {}, `${key}:${state.router.params[key]}`)))
     },
     plugins: [Router]
   })
 
   expectHTMLToBe(`
-      <ul>
-        <li>foo:beep</li>
-        <li>bar:bop</li>
-        <li>baz:boop</li>
-      </ul>
-		`)
+    <ul>
+      <li>foo:beep</li>
+      <li>bar:bop</li>
+      <li>baz:boop</li>
+    </ul>
+  `)
 })
 
-test("collect route with dashes into a single param key", () => {
+test("routes with dashes into a single param key", () => {
   window.location.pathname = "/beep-bop-boop"
 
   app({
     view: {
-      "/:foo": model => h("div", {}, model.router.params.foo)
+      "/:foo": state => h("div", {}, state.router.params.foo)
     },
     plugins: [Router]
   })
 
   expectHTMLToBe(`
-      <div>
-        beep-bop-boop
-      </div>
-		`)
+    <div>
+      beep-bop-boop
+    </div>
+  `)
 })
 
-test("listen to popstate", () => {
-  function firePopstate() {
-    const event = document.createEvent("Event")
-    event.initEvent("popstate", true, true)
-    window.document.dispatchEvent(event)
-  }
-
+test("popstate", () => {
   app({
     view: {
-      "/": model => "",
-      "/foo": model => h("div", {}, "foo")
+      "/": state => "",
+      "/foo": state => h("div", {}, "foo")
     },
     plugins: [Router]
   })
 
   window.location.pathname = "/foo"
 
-  firePopstate()
+  const event = document.createEvent("Event")
+  event.initEvent("popstate", true, true)
+  window.document.dispatchEvent(event)
 
   expectHTMLToBe(`
-			<div>
-				foo
-			</div>
-		`)
+    <div>
+      foo
+    </div>
+  `)
 })
 
-test("navigate to a given route", () => {
+test("go", () => {
   window.history.pushState = (_, __, data) =>
     expect(data).toMatch(/^\/(foo|bar|baz)$/)
 
   app({
     view: {
-      "/": model => "",
-      "/foo": model => h("div", {}, "foo"),
-      "/bar": model => h("div", {}, "bar"),
-      "/baz": model => h("div", {}, "baz")
+      "/": state => "",
+      "/foo": state => h("div", {}, "foo"),
+      "/bar": state => h("div", {}, "bar"),
+      "/baz": state => h("div", {}, "baz")
     },
     plugins: [Router],
-    subscriptions: [
-      (_, actions) => {
+    events: {
+      onLoad: [
+        (_, actions) => {
+          actions.router.go("/foo")
+          expectHTMLToBe(`
+            <div>
+              foo
+            </div>
+          `)
+
+          actions.router.go("/bar")
+          expectHTMLToBe(`
+            <div>
+              bar
+            </div>
+          `)
+
+          actions.router.go("/baz")
+          expectHTMLToBe(`
+            <div>
+              baz
+            </div>
+          `)
+        }
+      ]
+    }
+  })
+})
+
+test("onRoute", () => {
+  app({
+    state: {},
+    view: {
+      "/": _ => "/",
+      "/foo": _ => "foo"
+    },
+    events: {
+      onLoad: (_, actions) => {
+        expectHTMLToBe("/")
+
         actions.router.go("/foo")
-        expectHTMLToBe(`
-							<div>
-								foo
-							</div>
-						`)
-
-        actions.router.go("/bar")
-        expectHTMLToBe(`
-							<div>
-								bar
-							</div>
-						`)
-
-        actions.router.go("/baz")
-        expectHTMLToBe(`
-							<div>
-								baz
-							</div>
-						`)
+        
+        expectHTMLToBe("foo")
+      },
+      onRoute: (state, actions, { match }) => {
+        expect(match).toBe("/foo")
       }
-    ]
+    },
+    plugins: [Router]
   })
 })

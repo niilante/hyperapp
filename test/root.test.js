@@ -3,7 +3,7 @@ import { expectHTMLToBe } from "./util"
 
 beforeEach(() => document.body.innerHTML = "")
 
-test("append view to document.body if no root is given", () => {
+test("default root is document.body", () => {
   app({
     view: _ => "foo"
   })
@@ -11,7 +11,7 @@ test("append view to document.body if no root is given", () => {
   expectHTMLToBe("foo")
 })
 
-test("append view to a given root", () => {
+test("root", () => {
   app({
     root: document.body.appendChild(document.createElement("main")),
     view: _ => h("div", {}, "foo")
@@ -26,7 +26,7 @@ test("append view to a given root", () => {
   `)
 })
 
-test("append view to a non-empty root", () => {
+test("non-empty root", () => {
   const main = document.createElement("main")
   main.appendChild(document.createElement("span"))
 
@@ -46,43 +46,45 @@ test("append view to a non-empty root", () => {
   `)
 })
 
-test("update view in a mutated root", () => {
+test("mutated root", () => {
   const main = document.createElement("main")
 
   app({
     root: document.body.appendChild(main),
-    model: "foo",
+    state: "foo",
     actions: {
-      bar: model => "bar"
+      bar: state => "bar"
     },
-    subscriptions: [
-      (_, actions) => {
-        expectHTMLToBe(`
-          <main>
-            <div>
-              foo
-            </div>
-          </main>
-        `)
+    events: {
+      onLoad: [
+        (_, actions) => {
+          expectHTMLToBe(`
+            <main>
+              <div>
+                foo
+              </div>
+            </main>
+          `)
 
-        main.insertBefore(document.createElement("header"), main.firstChild)
-        main.appendChild(document.createElement("footer"))
+          main.insertBefore(document.createElement("header"), main.firstChild)
+          main.appendChild(document.createElement("footer"))
 
-        actions.bar()
+          actions.bar()
 
-        expectHTMLToBe(`
-          <main>
-            <header>
-            </header>
-            <div>
-              bar
-            </div>
-            <footer>
-            </footer>
-          </main>
-        `)
-      }
-    ],
-    view: model => h("div", {}, model)
+          expectHTMLToBe(`
+            <main>
+              <header>
+              </header>
+              <div>
+                bar
+              </div>
+              <footer>
+              </footer>
+            </main>
+          `)
+        }
+      ]
+    },
+    view: state => h("div", {}, state)
   })
 })

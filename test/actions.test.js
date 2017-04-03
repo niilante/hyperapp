@@ -3,16 +3,18 @@ import { expectHTMLToBe } from "./util"
 
 beforeEach(() => document.body.innerHTML = "")
 
-test("update the model to render the view", () => {
+test("update the state to render the view", () => {
   app({
-    model: 1,
-    view: model => h("div", {}, model),
+    state: 1,
+    view: state => h("div", {}, state),
     actions: {
-      add: model => model + 1
+      add: state => state + 1
     },
-    subscriptions: [
-      (_, actions) => actions.add()
-    ]
+    events: {
+      onLoad: [
+        (_, actions) => actions.add()
+      ]
+    }
   })
 
   expectHTMLToBe(`
@@ -22,19 +24,19 @@ test("update the model to render the view", () => {
   `)
 })
 
-test("update the model async", done => {
+test("update the state async", done => {
   app({
-    model: 1,
-    view: model => h("div", {}, model),
+    state: 1,
+    view: state => h("div", {}, state),
     actions: {
-      change: (model, data) => model + data,
-      delayAndChange: (model, data, actions) => {
+      change: (state, data) => state + data,
+      delayAndChange: (state, data, actions) => {
         setTimeout(_ => {
           actions.change(data)
 
           expectHTMLToBe(`
             <div>
-              ${model + data}
+              ${state + data}
             </div>
           `)
 
@@ -42,26 +44,28 @@ test("update the model async", done => {
         }, 20)
       }
     },
-    subscriptions: [
-      (_, actions) => actions.delayAndChange(10)
-    ]
+    events: {
+      onLoad: [
+        (_, actions) => actions.delayAndChange(10)
+      ]
+    }
   })
 })
 
 test("return a promise", done => {
   app({
-    model: 1,
-    view: model => h("div", {}, model),
+    state: 1,
+    view: state => h("div", {}, state),
     actions: {
-      change: (model, data) => model + data,
+      change: (state, data) => state + data,
       delay: _ => new Promise(resolve => setTimeout(_ => resolve(), 20)),
-      delayAndChange: (model, data, actions) => {
+      delayAndChange: (state, data, actions) => {
         actions.delay().then(_ => {
           actions.change(data)
 
           expectHTMLToBe(`
             <div>
-              ${model + data}
+              ${state + data}
             </div>
           `)
 
@@ -69,28 +73,32 @@ test("return a promise", done => {
         })
       }
     },
-    subscriptions: [
-      (_, actions) => actions.delayAndChange(10)
-    ]
+    events: {
+      onLoad: [
+        (_, actions) => actions.delayAndChange(10)
+      ]
+    }
   })
 })
 
 test("namespaces/nested actions", () => {
   app({
-    model: true,
+    state: true,
+    view: _ => h("div", {}, ""),
     actions: {
       foo: {
         bar: {
-          baz: (model, data) => {
-            expect(model).toBe(true)
+          baz: (state, data) => {
+            expect(state).toBe(true)
             expect(data).toBe("foo.bar.baz")
           }
         }
       }
     },
-    subscriptions: [
-      (_, actions) => actions.foo.bar.baz("foo.bar.baz")
-    ],
-    view: _ => h("div", {}, "")
+    events: {
+      onLoad: [
+        (_, actions) => actions.foo.bar.baz("foo.bar.baz")
+      ]
+    }
   })
 })

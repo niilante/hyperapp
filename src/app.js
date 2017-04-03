@@ -1,97 +1,60 @@
 var SVG_NS = "http://www.w3.org/2000/svg"
 
 export default function (app) {
+  var state
   var view = app.view || function () {
     return ""
   }
-
-  var model
   var actions = {}
-  var hooks = {
-    onError: [],
-    onAction: [],
-    onUpdate: [],
-    onRender: []
-  }
-  var subscriptions = []
+  var events = {}
+  var root
 
   var node
-  var root
   var element
+
   var plugins = app.plugins || []
 
   for (var i = -1; i < plugins.length; i++) {
     var plugin = i < 0 ? app : plugins[i](app)
-    var obj = plugin.model
 
-    if (obj != null) {
-      model = merge(model, obj)
+    if (plugin.state != null) {
+      state = merge(state, plugin.state)
     }
 
-    if (obj = plugin.actions) {
-      init(actions, obj)
-    }
+    init(actions, plugin.actions || {})
 
-    if (obj = plugin.subscriptions) {
-      subscriptions = subscriptions.concat(obj)
-    }
-
-    if (obj = plugin.hooks) {
-      Object.keys(obj).map(function (key) {
-        hooks[key].push(obj[key])
-      })
-    }
+    Object.keys(plugin.events || {}).map(function (key) {
+      events[key] = (events[key] || []).concat(plugin.events[key])
+    })
   }
 
   load(function () {
     root = app.root || document.body
+    emit("onLoad", emit)
 
-    render(model, view)
-
-    subscriptions.map(function (cb) {
-      cb(model, actions, error)
-    })
+    render(state, view)
   })
 
-  function error(error) {
-    if (hooks.onError.length === 0) {
-      throw error
-    }
-
-    hooks.onError.map(function (cb) {
-      cb(error)
-    })
-  }
-
-  function init(container, group, lastName) {
-    Object.keys(group).map(function (key) {
+  function init(namespace, children, lastName) {
+    Object.keys(children).map(function (key) {
       var name = lastName ? lastName + "." + key : key
-      var action = group[key]
+      var action = children[key]
 
       if (typeof action === "function") {
-        container[key] = function (data) {
-          hooks.onAction.map(function (cb) {
-            cb(name, data)
-          })
-
-          var result = action(model, data, actions, error)
+        namespace[key] = function (data) {
+          var result = action(state, emit("onAction", {
+            name: name,
+            data: data
+          }).data, actions)
 
           if (result == null || typeof result.then === "function") {
             return result
-
-          } else {
-            hooks.onUpdate.map(function (cb) {
-              cb(model, result, data)
-            })
-
-            model = merge(model, result)
-            render(model, view)
           }
+
+          render(state = merge(state, emit("onUpdate", result)), view)
         }
       } else {
-        init(container[key]
-          ? container[key]
-          : container[key] = {}, action, name)
+        init(namespace[key] || (namespace[key] = {}), action, name)
       }
     })
   }
@@ -100,16 +63,28 @@ export default function (app) {
     if (document.readyState[0] !== "l") {
       cb()
     } else {
-      document.addEventListener("DOMContentLoaded", cb)
+      addEventListener("DOMContentLoaded", cb)
     }
   }
 
-  function render(model, view) {
-    hooks.onRender.map(function (cb) {
-      view = cb(model, view)
+  function render(state, view) {
+    element = patch(
+      root,
+      element,
+      node,
+      node = emit("onRender", view)(state, actions)
+    )
+  }
+
+  function emit(name, data) {
+    (events[name] || []).map(function (cb) {
+      var result = cb(state, actions, data, emit)
+      if (result != null) {
+        data = result
+      }
     })
 
-    element = patch(root, element, node, node = view(model, actions))
+    return data
   }
 
   function merge(a, b) {

@@ -22,13 +22,9 @@ export default function (tag, data) {
         stack.push(node[i])
       }
     } else if (node != null && node !== true && node !== false) {
-      // Ignore nodes that are null, undefined or booleans.
-
       if (typeof node === "number") {
         node = node + ""
       }
-
-      // Concatenate contiguous text nodes.
 
       canConcat = typeof node === "string"
 
